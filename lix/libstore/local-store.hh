@@ -198,6 +198,8 @@ public:
 
     std::string getUri() override;
 
+    kj::Promise<Result<bool>> updateRegistrationTime(const StorePathSet paths) override;
+
     kj::Promise<Result<bool>> isValidPathUncached(const StorePath & path) override;
 
     kj::Promise<Result<StorePathSet>> queryValidPaths(const StorePathSet & paths,

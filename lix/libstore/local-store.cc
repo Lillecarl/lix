@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <nlohmann/json.hpp>
 
 #include <limits>
 #include <memory>
@@ -60,6 +61,7 @@ std::string LocalStoreConfig::doc()
 
 struct LocalStore::DBState::Stmts {
     /* Some precompiled SQLite statements. */
+    SQLiteStmt UpdateRegistrationTimeRecursive;
     SQLiteStmt RegisterValidPath;
     SQLiteStmt UpdatePathInfo;
     SQLiteStmt AddReference;
@@ -389,6 +391,35 @@ void LocalStore::initDB(DBState & state)
 void LocalStore::prepareStatements(DBState & state)
 {
     /* Prepare SQL statements. */
+
+    // This is AI generated as fuck
+    state.stmts->UpdateRegistrationTimeRecursive = state.db.create(
+    ""
+    "UPDATE ValidPaths "
+    "SET registrationTime = unixepoch() "
+    "WHERE id IN ( "
+    "    WITH RECURSIVE closure(id) AS ( "
+    "        SELECT id FROM ValidPaths WHERE path IN (SELECT value FROM json_each(?)) "
+    "        UNION "
+    "        SELECT r.reference "
+    "        FROM closure c JOIN Refs r ON c.id = r.referrer "
+    "        UNION "
+    "        SELECT deriver_vp.id "
+    "        FROM closure c "
+    "        JOIN ValidPaths current_vp ON c.id = current_vp.id "
+    "        JOIN ValidPaths deriver_vp ON current_vp.deriver = deriver_vp.path "
+    "        WHERE current_vp.deriver IS NOT NULL "
+    "        UNION "
+    "        SELECT r.reference "
+    "        FROM closure c "
+    "        JOIN ValidPaths current_vp ON c.id = current_vp.id "
+    "        JOIN ValidPaths deriver_vp ON current_vp.deriver = deriver_vp.path "
+    "        JOIN Refs r ON deriver_vp.id = r.referrer "
+    "        WHERE current_vp.deriver IS NOT NULL "
+    "    ) "
+    "    SELECT id FROM closure "
+    ") "
+    "RETURNING path;");
     state.stmts->RegisterValidPath = state.db.create(
         "insert into ValidPaths (path, hash, registrationTime, deriver, narSize, ultimate, sigs, ca) values (?, ?, ?, ?, ?, ?, ?, ?);");
     state.stmts->UpdatePathInfo = state.db.create(
@@ -855,6 +886,30 @@ void LocalStore::cacheDrvOutputMapping(
         .exec();
 }
 
+kj::Promise<Result<bool>> LocalStore::updateRegistrationTime(const StorePathSet paths)
+try {
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-capturing-lambda-coroutines)
+    co_return TRY_AWAIT(retrySQLite([&]() -> kj::Promise<Result<bool>> {
+        try {
+            auto state = co_await _dbState.lock();
+            nlohmann::json pathsJson = nlohmann::json::array();
+            for (const auto & path : paths) {
+                pathsJson.push_back(printStorePath(path));
+            }
+
+            auto updatedPaths =
+                state->stmts->UpdateRegistrationTimeRecursive.use()(pathsJson.dump());
+            while (updatedPaths.next()) {
+                std::cout << "Updated registrationTime for: " << updatedPaths.getStr(0) << std::endl;
+            }
+            co_return result::success(true);
+        } catch (...) {
+            co_return result::current_exception();
+        }
+    }));
+} catch (...) {
+    co_return result::current_exception();
+}
 
 kj::Promise<Result<uint64_t>> LocalStore::addValidPath(DBState & state,
     const ValidPathInfo & info, bool checkOutputs)

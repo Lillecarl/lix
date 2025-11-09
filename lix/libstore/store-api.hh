@@ -374,6 +374,12 @@ protected:
     virtual kj::Promise<Result<bool>> isValidPathUncached(const StorePath & path);
 
 public:
+    virtual kj::Promise<Result<bool>> updateRegistrationTime(const StorePathSet /*paths*/) { co_return result::success(true); };
+    virtual kj::Promise<Result<bool>> updateRegistrationTime(const StorePath path) {
+        auto paths = StorePathSet();
+        paths.insert(path);
+        return updateRegistrationTime(paths);
+    };
 
     /**
      * If requested, substitute missing paths. This

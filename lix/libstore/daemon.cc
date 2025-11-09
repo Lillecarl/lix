@@ -278,6 +278,7 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         bool result = aio.blockOn(store->isValidPath(path));
         logger->stopWork();
         to << result;
+        aio.blockOn(store->updateRegistrationTime(path));
         break;
     }
 
@@ -296,6 +297,7 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         auto res = aio.blockOn(store->queryValidPaths(paths, substitute));
         logger->stopWork();
         to << WorkerProto::write(*store, wconn, res);
+        aio.blockOn(store->updateRegistrationTime(paths));
         break;
     }
 
@@ -844,6 +846,7 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         } else {
             to << 0;
         }
+        aio.blockOn(store->updateRegistrationTime(path));
         break;
     }
 
@@ -943,6 +946,10 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         to << WorkerProto::write(*store, wconn, willSubstitute);
         to << WorkerProto::write(*store, wconn, unknown);
         to << downloadSize << narSize;
+        auto paths = StorePathSet();
+        for (auto & target : targets)
+            paths.insert(target.getBaseStorePath());
+        aio.blockOn(store->updateRegistrationTime(paths));
         break;
     }
 
