@@ -184,6 +184,9 @@ struct StoreConfig : public Config
           queried efficiently for path validity.
         )"};
 
+    Setting<bool> updateRegistrationTime{this, false, "update-registration-time",
+        "Auto-update registration times during path queries."};
+
     Setting<StringSet> systemFeatures{this, getDefaultSystemFeatures(),
         "system-features",
         "Optional features that the system this store builds on implements (like \"kvm\").",
@@ -389,6 +392,12 @@ protected:
     isValidPathUncached(const StorePath & path, const Activity * context = nullptr);
 
 public:
+    virtual kj::Promise<Result<bool>> updateRegistrationTime(const StorePathSet /*paths*/) { co_return result::success(true); };
+    virtual kj::Promise<Result<bool>> updateRegistrationTime(const StorePath path) {
+        auto paths = StorePathSet();
+        paths.insert(path);
+        return updateRegistrationTime(paths);
+    };
 
     /**
      * If requested, substitute missing paths. This

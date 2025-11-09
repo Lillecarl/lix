@@ -124,6 +124,8 @@ struct CmdBuild : InstallablesCommand, MixDryRun, MixJSON, MixProfile
     {
         auto state = getEvaluator()->begin(aio());
 
+        store->config().updateRegistrationTime.override(true);
+
         if (dryRun) {
             std::vector<DerivedPath> pathsToBuild;
 
