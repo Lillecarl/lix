@@ -260,6 +260,14 @@ struct ClientSettings
     }
 };
 
+/** Check if registration time should be updated for this store.
+ *  Returns true if the setting is unset (default: true) or explicitly enabled.
+ */
+static bool shouldUpdateRegistrationTime(ref<Store> store) {
+    auto & setting = store->config().updateRegistrationTime;
+    return !setting.overridden || setting.get();
+}
+
 static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store,
     TrustedFlag trusted, WorkerProto::Version clientVersion,
     Source & from, BufferedSink & to, WorkerProto::Op op)
@@ -275,7 +283,7 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         bool result = aio.blockOn(store->isValidPath(path));
         logger->stopWork();
         to << result;
-        if (!store->config().updateRegistrationTime.isOverridden() || store->config().updateRegistrationTime.get())
+        if (shouldUpdateRegistrationTime(store))
             aio.blockOn(store->updateRegistrationTime(path));
         break;
     }
@@ -292,7 +300,7 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         auto res = aio.blockOn(store->queryValidPaths(paths, substitute));
         logger->stopWork();
         to << WorkerProto::write(wconn, res);
-        if (!store->config().updateRegistrationTime.isOverridden() || store->config().updateRegistrationTime.get())
+        if (shouldUpdateRegistrationTime(store))
             aio.blockOn(store->updateRegistrationTime(paths));
         break;
     }
@@ -365,6 +373,8 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
 
         logger->stopWork();
         to << WorkerProto::write(wconn, paths);
+        if (shouldUpdateRegistrationTime(store))
+            aio.blockOn(store->updateRegistrationTime(path));
         break;
     }
 
@@ -378,6 +388,8 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         auto outputs = aio.blockOn(store->queryDerivationOutputMap(path));
         logger->stopWork();
         to << WorkerProto::write(wconn, outputs);
+        if (shouldUpdateRegistrationTime(store))
+            aio.blockOn(store->updateRegistrationTime(path));
         break;
     }
 
@@ -387,6 +399,8 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         auto path = aio.blockOn(store->queryPathFromHashPart(hashPart));
         logger->stopWork();
         to << (path ? store->printStorePath(*path) : "");
+        if (path && shouldUpdateRegistrationTime(store))
+            aio.blockOn(store->updateRegistrationTime(*path));
         break;
     }
 
@@ -426,6 +440,8 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         logger->stopWork();
 
         to << WorkerProto::Serialise<ValidPathInfo>::write(wconn, *pathInfo);
+        if (shouldUpdateRegistrationTime(store))
+            aio.blockOn(store->updateRegistrationTime(pathInfo->path));
         break;
     }
 
@@ -436,6 +452,7 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
             dontCheckSigs = false;
 
         logger->startWork();
+        StorePathSet addedPaths;
         {
             FramedSource source(from);
             auto expected = readNum<uint64_t>(source);
@@ -448,9 +465,12 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
                 aio.blockOn(store->addToStore(
                     info, stream, RepairFlag{repair}, dontCheckSigs ? NoCheckSigs : CheckSigs
                 ));
+                addedPaths.insert(info.path);
             }
         }
         logger->stopWork();
+        if (shouldUpdateRegistrationTime(store))
+            aio.blockOn(store->updateRegistrationTime(addedPaths));
         break;
     }
 
@@ -477,6 +497,12 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         aio.blockOn(store->buildPaths(drvs, mode));
         logger->stopWork();
         to << 1;
+        if (shouldUpdateRegistrationTime(store)) {
+            StorePathSet paths;
+            for (auto & drv : drvs)
+                paths.insert(drv.getBaseStorePath());
+            aio.blockOn(store->updateRegistrationTime(paths));
+        }
         break;
     }
 
@@ -498,6 +524,12 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
 
         to << WorkerProto::write(wconn, results);
 
+        if (shouldUpdateRegistrationTime(store)) {
+            StorePathSet paths;
+            for (auto & drv : drvs)
+                paths.insert(drv.getBaseStorePath());
+            aio.blockOn(store->updateRegistrationTime(paths));
+        }
         break;
     }
 
@@ -575,6 +607,8 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         auto res = aio.blockOn(store->buildDerivation(drvPath, drv, buildMode));
         logger->stopWork();
         to << WorkerProto::write(wconn, res);
+        if (shouldUpdateRegistrationTime(store))
+            aio.blockOn(store->updateRegistrationTime(drvPath));
         break;
     }
 
@@ -584,6 +618,8 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         aio.blockOn(store->ensurePath(path));
         logger->stopWork();
         to << 1;
+        if (shouldUpdateRegistrationTime(store))
+            aio.blockOn(store->updateRegistrationTime(path));
         break;
     }
 
@@ -593,6 +629,8 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         aio.blockOn(store->addTempRoot(path));
         logger->stopWork();
         to << 1;
+        if (shouldUpdateRegistrationTime(store))
+            aio.blockOn(store->updateRegistrationTime(path));
         break;
     }
 
@@ -651,6 +689,9 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         auto & gcStore = require<GcStore>(*store);
         aio.blockOn(gcStore.collectGarbage(options, results));
         logger->stopWork();
+
+        // Update registrationTime for live roots
+        // gcStore.findRoots(false);
 
         to << results.paths << results.bytesFreed << 0 /* obsolete */;
 
@@ -728,6 +769,9 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         auto paths = aio.blockOn(store->queryAllValidPaths());
         logger->stopWork();
         to << WorkerProto::write(wconn, paths);
+        // Note: We intentionally don't update registration time here as this operation
+        // queries the entire store, which would mark all paths as recently used and
+        // defeat the purpose of LRU-based garbage collection.
         break;
     }
 
@@ -748,7 +792,7 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         } else {
             to << 0;
         }
-        if (!store->config().updateRegistrationTime.isOverridden() || store->config().updateRegistrationTime.get())
+        if (shouldUpdateRegistrationTime(store))
             aio.blockOn(store->updateRegistrationTime(path));
         break;
     }
@@ -821,7 +865,7 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         logger->stopWork();
 
         // Update registration time on destination if setting is enabled
-        if (!store->config().updateRegistrationTime.isOverridden() || store->config().updateRegistrationTime.get())
+        if (shouldUpdateRegistrationTime(store))
             aio.blockOn(store->updateRegistrationTime(info.path));
 
         break;
@@ -843,7 +887,7 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         auto paths = StorePathSet();
         for (auto & target : targets)
             paths.insert(target.getBaseStorePath());
-        if (!store->config().updateRegistrationTime.isOverridden() || store->config().updateRegistrationTime.get())
+        if (shouldUpdateRegistrationTime(store))
             aio.blockOn(store->updateRegistrationTime(paths));
         break;
     }

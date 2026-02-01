@@ -872,6 +872,9 @@ try {
         }
     }
 
+    // Update registrationTime for gcrooted paths
+    TRY_AWAIT(updateRegistrationTime(alive));
+
     if (options.action == GCOptions::gcReturnLive) {
         for (auto & i : alive)
             results.paths.insert(printStorePath(i));
