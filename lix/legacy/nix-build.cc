@@ -195,6 +195,8 @@ static void main_nix_build(AsyncIoRoot & aio, std::string programName, Strings a
     auto store = aio.blockOn(openStore());
     auto evalStore = myArgs.evalStoreUrl ? aio.blockOn(openStore(*myArgs.evalStoreUrl)) : store;
 
+    store->config().updateRegistrationTime.override(true);
+
     auto evaluator = std::make_unique<Evaluator>(aio, myArgs.searchPath, evalStore, store);
     evaluator->repair = myArgs.repair;
     auto state = evaluator->begin(aio);

@@ -183,6 +183,9 @@ struct StoreConfig : public Config
           queried efficiently for path validity.
         )"};
 
+    Setting<bool> updateRegistrationTime{this, false, "update-registration-time",
+        "Auto-update registration times during path queries."};
+
     Setting<StringSet> systemFeatures{this, getDefaultSystemFeatures(),
         "system-features",
         "Optional features that the system this store builds on implements (like \"kvm\").",

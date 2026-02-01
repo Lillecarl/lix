@@ -64,6 +64,8 @@ struct CmdEval : MixJSON, InstallableCommand, MixReadOnlyOption
         auto evaluator = getEvaluator();
         auto state = evaluator->begin(aio());
 
+        store->config().updateRegistrationTime.override(true);
+
         auto [v, pos] = installableValue->toValue(*state);
         NixStringContext context;
 
