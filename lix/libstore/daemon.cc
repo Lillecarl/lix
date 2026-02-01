@@ -820,6 +820,10 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         }
         logger->stopWork();
 
+        // Update registration time on destination if setting is enabled
+        if (!store->config().updateRegistrationTime.isOverridden() || store->config().updateRegistrationTime.get())
+            aio.blockOn(store->updateRegistrationTime(info.path));
+
         break;
     }
 

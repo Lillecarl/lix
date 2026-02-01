@@ -51,6 +51,10 @@ static int main_nix_copy_closure(AsyncIoRoot & aio, std::string programName, Str
         auto to = aio.blockOn(toMode ? openStore(remoteUri) : openStore());
         auto from = aio.blockOn(toMode ? openStore() : openStore(remoteUri));
 
+        // Enable updateRegistrationTime on destination to mark paths as recently used
+        settings.updateRegistrationTime.override(true);
+        to->config().updateRegistrationTime.override(true);
+
         RealisedPath::Set storePaths2;
         for (auto & path : storePaths)
             storePaths2.insert(from->followLinksToStorePath(path));
