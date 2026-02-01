@@ -681,6 +681,11 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
 
         logger->startWork();
         clientSettings.apply(trusted);
+
+        // Apply updateRegistrationTime to the per-connection store config if it was set
+        if (auto val = settings.updateRegistrationTime.get())
+            store->config().updateRegistrationTime.override(val);
+
         logger->stopWork();
         break;
     }

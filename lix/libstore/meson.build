@@ -152,6 +152,7 @@ libstore_setting_definitions = files(
   'settings/use-cgroups.md',
   'settings/use-sqlite-wal.md',
   'settings/use-xdg-base-directories.md',
+  'settings/update-registration-time.md',
   # keep-sorted end
 )
 libstore_settings_headers += custom_target(
