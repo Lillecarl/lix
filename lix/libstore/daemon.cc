@@ -275,7 +275,8 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         bool result = aio.blockOn(store->isValidPath(path));
         logger->stopWork();
         to << result;
-        aio.blockOn(store->updateRegistrationTime(path));
+        if (!store->config().updateRegistrationTime.isOverridden() || store->config().updateRegistrationTime.get())
+            aio.blockOn(store->updateRegistrationTime(path));
         break;
     }
 
@@ -291,7 +292,8 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         auto res = aio.blockOn(store->queryValidPaths(paths, substitute));
         logger->stopWork();
         to << WorkerProto::write(wconn, res);
-        aio.blockOn(store->updateRegistrationTime(paths));
+        if (!store->config().updateRegistrationTime.isOverridden() || store->config().updateRegistrationTime.get())
+            aio.blockOn(store->updateRegistrationTime(paths));
         break;
     }
 
@@ -682,9 +684,11 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         logger->startWork();
         clientSettings.apply(trusted);
 
-        // Apply updateRegistrationTime to the per-connection store config if it was set
-        if (auto val = settings.updateRegistrationTime.get())
-            store->config().updateRegistrationTime.override(val);
+        // Apply updateRegistrationTime to the per-connection store config if explicitly set
+        // This preserves the overridden flag so operations can distinguish between
+        // "client explicitly sent it" vs "using default"
+        if (settings.updateRegistrationTime.overridden)
+            store->config().updateRegistrationTime.override(settings.updateRegistrationTime.get());
 
         logger->stopWork();
         break;
@@ -744,7 +748,8 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         } else {
             to << 0;
         }
-        aio.blockOn(store->updateRegistrationTime(path));
+        if (!store->config().updateRegistrationTime.isOverridden() || store->config().updateRegistrationTime.get())
+            aio.blockOn(store->updateRegistrationTime(path));
         break;
     }
 
@@ -834,7 +839,8 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         auto paths = StorePathSet();
         for (auto & target : targets)
             paths.insert(target.getBaseStorePath());
-        aio.blockOn(store->updateRegistrationTime(paths));
+        if (!store->config().updateRegistrationTime.isOverridden() || store->config().updateRegistrationTime.get())
+            aio.blockOn(store->updateRegistrationTime(paths));
         break;
     }
 
