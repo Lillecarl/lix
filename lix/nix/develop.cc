@@ -567,6 +567,9 @@ struct CmdDevelop : Common, MixEnvironment
 
     void run(ref<Store> store, ref<Installable> installable) override
     {
+        // Enable updateRegistrationTime for daemon protocol
+        store->config().updateRegistrationTime.override(true);
+
         auto evaluator = getEvaluator();
         auto state = evaluator->begin(aio());
 

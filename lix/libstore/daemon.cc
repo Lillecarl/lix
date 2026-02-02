@@ -690,9 +690,6 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         aio.blockOn(gcStore.collectGarbage(options, results));
         logger->stopWork();
 
-        // Update registrationTime for live roots
-        // gcStore.findRoots(false);
-
         to << results.paths << results.bytesFreed << 0 /* obsolete */;
 
         break;
@@ -725,11 +722,16 @@ static void performOp(AsyncIoRoot & aio, TunnelLogger * logger, ref<Store> store
         logger->startWork();
         clientSettings.apply(trusted);
 
-        // Apply updateRegistrationTime to the per-connection store config if explicitly set
-        // This preserves the overridden flag so operations can distinguish between
-        // "client explicitly sent it" vs "using default"
-        if (settings.updateRegistrationTime.overridden)
-            store->config().updateRegistrationTime.override(settings.updateRegistrationTime.get());
+        // Apply updateRegistrationTime to the per-connection store config from client
+        auto updateRegTimeIt = clientSettings.overrides.find("update-registration-time");
+        if (updateRegTimeIt != clientSettings.overrides.end()) {
+            auto value = updateRegTimeIt->second;
+            bool enabled = value == "1" || value == "true";
+            store->config().updateRegistrationTime.override(enabled);
+        } else {
+            // Default to enabling registration time updates for unpatched clients
+            store->config().updateRegistrationTime.override(true);
+        }
 
         logger->stopWork();
         break;
@@ -1031,6 +1033,8 @@ void processConnection(
         std::terminate();
         return;
     }
+
+    aio.blockOn(store->flushPendingRegistrationTimeUpdates());
 }
 
 }

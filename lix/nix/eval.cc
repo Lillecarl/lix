@@ -75,8 +75,7 @@ struct CmdEval : MixJSON, InstallableCommand, MixReadOnlyOption
         auto evaluator = getEvaluator();
         auto state = evaluator->begin(aio());
 
-        // Enable updateRegistrationTime both globally (for daemon protocol) and locally
-        settings.updateRegistrationTime.override(true);
+        // Enable updateRegistrationTime for daemon protocol
         store->config().updateRegistrationTime.override(true);
 
         auto [v, pos] = installableValue->toValue(*state);

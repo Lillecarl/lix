@@ -206,6 +206,8 @@ public:
 
     kj::Promise<Result<bool>> updateRegistrationTime(const StorePathSet paths) override;
 
+    kj::Promise<Result<bool>> flushPendingRegistrationTimeUpdates() override;
+
     kj::Promise<Result<bool>>
     isValidPathUncached(const StorePath & path, const Activity * context) override;
 

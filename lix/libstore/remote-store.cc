@@ -169,6 +169,13 @@ try {
     overrides.erase(settings.pluginFiles.name);
     overrides.erase(settings.storeUri.name); // the daemon *is* the store
     overrides.erase(settings.tarballTtl.name); // eval-time only, implictly set by flake cli
+
+    // Always send updateRegistrationTime from store config to daemon
+    overrides["update-registration-time"] = Config::SettingInfo{
+        config().updateRegistrationTime.to_string(),
+        config().updateRegistrationTime.description
+    };
+
     command << overrides.size();
     for (auto & i : overrides)
         command << i.first << i.second.value;

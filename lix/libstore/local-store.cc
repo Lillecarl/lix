@@ -297,7 +297,6 @@ void LocalStore::prepareStatements(DBState & state)
 {
     /* Prepare SQL statements. */
 
-    // This is AI generated as fuck
     state.stmts->UpdateRegistrationTimeRecursive = state.db.create(
     ""
     "UPDATE ValidPaths "
@@ -681,20 +680,34 @@ void LocalStore::cacheDrvOutputMapping(
 
 kj::Promise<Result<bool>> LocalStore::updateRegistrationTime(const StorePathSet paths)
 try {
+    for (const auto & path : paths) {
+        pendingRegistrationTimeUpdates.insert(path);
+    }
+    co_return result::success(true);
+} catch (...) {
+    co_return result::current_exception();
+}
+
+kj::Promise<Result<bool>> LocalStore::flushPendingRegistrationTimeUpdates()
+try {
+    if (pendingRegistrationTimeUpdates.empty()) {
+        co_return result::success(true);
+    }
+
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-capturing-lambda-coroutines)
     co_return TRY_AWAIT(retrySQLite([&]() -> kj::Promise<Result<bool>> {
         try {
             auto state = co_await _dbState.lock();
             nlohmann::json pathsJson = nlohmann::json::array();
-            for (const auto & path : paths) {
+            for (const auto & path : pendingRegistrationTimeUpdates) {
                 pathsJson.push_back(printStorePath(path));
             }
 
             auto updatedPaths =
                 state->stmts->UpdateRegistrationTimeRecursive.use()(pathsJson.dump());
             while (updatedPaths.next()) {
-                std::cout << "Updated registrationTime for: " << updatedPaths.getStr(0) << std::endl;
             }
+            pendingRegistrationTimeUpdates.clear();
             co_return result::success(true);
         } catch (...) {
             co_return result::current_exception();

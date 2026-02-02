@@ -49,7 +49,6 @@ struct CmdCopy : virtual CopyCommand, BuiltPathsCommand
         auto dstStore = getDstStore();
 
         // Enable updateRegistrationTime to mark destination paths as recently used
-        settings.updateRegistrationTime.override(true);
         dstStore->config().updateRegistrationTime.override(true);
 
         RealisedPath::Set stuffToCopy;

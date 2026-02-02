@@ -198,8 +198,7 @@ static int main_nix_build(AsyncIoRoot & aio, std::string programName, Strings ar
     auto store = aio.blockOn(openStore());
     auto evalStore = myArgs.evalStoreUrl ? aio.blockOn(openStore(*myArgs.evalStoreUrl)) : store;
 
-    // Enable updateRegistrationTime both globally (for daemon protocol) and locally
-    settings.updateRegistrationTime.override(true);
+    // Enable updateRegistrationTime for daemon protocol
     store->config().updateRegistrationTime.override(true);
 
     auto evaluator = std::make_unique<Evaluator>(aio, myArgs.searchPath, evalStore, store);
@@ -333,6 +332,9 @@ static int main_nix_build(AsyncIoRoot & aio, std::string programName, Strings ar
     };
 
     if (runEnv) {
+        // Enable updateRegistrationTime for daemon protocol
+        store->config().updateRegistrationTime.override(true);
+
         if (drvs.size() != 1)
             throw UsageError("nix-shell requires a single derivation");
 

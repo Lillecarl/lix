@@ -235,6 +235,8 @@ protected:
 
     std::shared_ptr<NarInfoDiskCache> diskCache;
 
+    StorePathSet pendingRegistrationTimeUpdates;
+
     Store(const StoreConfig & config);
 
 public:
@@ -397,6 +399,11 @@ public:
         auto paths = StorePathSet();
         paths.insert(path);
         return updateRegistrationTime(paths);
+    };
+
+    virtual kj::Promise<Result<bool>> flushPendingRegistrationTimeUpdates()
+    {
+        co_return result::success(true);
     };
 
     /**

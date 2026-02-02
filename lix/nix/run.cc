@@ -111,6 +111,9 @@ struct CmdShell : InstallablesCommand, MixEnvironment
 
     void run(ref<Store> store, Installables && installables) override
     {
+        // Enable updateRegistrationTime for daemon protocol
+        store->config().updateRegistrationTime.override(true);
+
         auto outPaths = Installable::toStorePaths(
             *getEvaluator()->begin(aio()),
             getEvalStore(),
@@ -214,6 +217,9 @@ struct CmdRun : InstallableCommand
 
         lockFlags.applyNixConfig = true;
         auto app = installableValue->toApp(*state).resolve(*state, getEvalStore(), store);
+
+        // Enable updateRegistrationTime for daemon protocol
+        store->config().updateRegistrationTime.override(true);
 
         Strings allArgs{app.program};
         for (auto & i : args) allArgs.push_back(i);

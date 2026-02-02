@@ -124,8 +124,7 @@ struct CmdBuild : InstallablesCommand, MixDryRun, MixJSON, MixProfile
     {
         auto state = getEvaluator()->begin(aio());
 
-        // Enable updateRegistrationTime both globally (for daemon protocol) and locally
-        settings.updateRegistrationTime.override(true);
+        // Enable updateRegistrationTime for daemon protocol
         store->config().updateRegistrationTime.override(true);
 
         if (dryRun) {
