@@ -63,7 +63,6 @@ std::string LocalStoreConfig::doc()
 struct LocalStore::DBState::Stmts {
     /* Some precompiled SQLite statements. */
     SQLiteStmt UpdateRegistrationTimeRecursive;
-    SQLiteStmt UpdateRegistrationTime;
     SQLiteStmt RegisterValidPath;
     SQLiteStmt UpdatePathInfo;
     SQLiteStmt AddReference;
@@ -324,8 +323,6 @@ void LocalStore::prepareStatements(DBState & state)
     "    SELECT id FROM closure "
     ") "
     "RETURNING path;");
-    state.stmts->UpdateRegistrationTime = state.db.create(
-        "update ValidPaths set registrationTime = unixepoch() where path = ?;");
     state.stmts->RegisterValidPath = state.db.create(
         "insert into ValidPaths (path, hash, registrationTime, deriver, narSize, ultimate, sigs, ca) values (?, ?, ?, ?, ?, ?, ?, ?);");
     state.stmts->UpdatePathInfo = state.db.create(
@@ -860,7 +857,7 @@ uint64_t LocalStore::queryValidPathId(DBState & state, const StorePath & path)
 bool LocalStore::isValidPath_(DBState & state, const StorePath & path)
 {
     if (config().updateRegistrationTime)
-        state.stmts->UpdateRegistrationTime.use()(printStorePath(path)).exec();
+        pendingRegistrationTimeUpdates.insert(path);
 
     return state.stmts->QueryPathInfo.use()(printStorePath(path)).next();
 }

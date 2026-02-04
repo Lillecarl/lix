@@ -177,6 +177,7 @@ static int main_nix_instantiate(AsyncIoRoot & aio, std::string programName, Stri
                 auto p = aio.blockOn(evaluator->paths.findFile(i)).unwrap();
                 std::cout << p.canonical().abs() << std::endl;
             }
+            aio.blockOn(store->flushPendingRegistrationTimeUpdates());
             return 0;
         }
 
@@ -197,6 +198,8 @@ static int main_nix_instantiate(AsyncIoRoot & aio, std::string programName, Stri
         }
 
         evaluator->maybePrintStats();
+
+        aio.blockOn(store->flushPendingRegistrationTimeUpdates());
 
         return 0;
     }

@@ -624,6 +624,8 @@ static int main_nix_build(AsyncIoRoot & aio, std::string programName, Strings ar
             std::cout << store->printStorePath(path) << '\n';
     }
 
+    aio.blockOn(store->flushPendingRegistrationTimeUpdates());
+
     return 0;
 }
 

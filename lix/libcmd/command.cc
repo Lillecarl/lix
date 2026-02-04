@@ -7,6 +7,7 @@
 #include "lix/libutil/async.hh"
 #include "lix/libutil/c-calls.hh"
 #include "lix/libutil/error.hh"
+#include "lix/libutil/finally.hh"
 
 extern char * * environ __attribute__((weak));
 
@@ -55,7 +56,11 @@ ref<Store> StoreCommand::createStore(AsyncIoRoot & in)
 
 void StoreCommand::run()
 {
-    run(getStore());
+    auto store = getStore();
+    Finally flush([&]() {
+        aio().blockOn(store->flushPendingRegistrationTimeUpdates());
+    });
+    run(store);
 }
 
 CopyCommand::CopyCommand()
