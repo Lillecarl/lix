@@ -677,8 +677,10 @@ void LocalStore::cacheDrvOutputMapping(
 
 kj::Promise<Result<bool>> LocalStore::updateRegistrationTime(const StorePathSet paths)
 try {
-    for (const auto & path : paths) {
-        pendingRegistrationTimeUpdates.insert(path);
+    if (config().updateRegistrationTime) {
+        for (const auto & path : paths) {
+            pendingRegistrationTimeUpdates.insert(path);
+        }
     }
     co_return result::success(true);
 } catch (...) {
@@ -732,6 +734,13 @@ try {
         (renderContentAddress(info.ca), (bool) info.ca)
         .exec();
     uint64_t id = state.db.getLastInsertedRowId();
+
+    /* Track registration time update for newly registered paths.
+       We add the path to the pending set so that its closure (dependencies,
+       derivers, and their transitive references) all get their registration
+       times updated when the batch is flushed. */
+    if (config().updateRegistrationTime)
+        pendingRegistrationTimeUpdates.insert(info.path);
 
     /* If this is a derivation, then store the derivation outputs in
        the database.  This is useful for the garbage collector: it can
