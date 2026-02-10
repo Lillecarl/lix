@@ -865,9 +865,6 @@ uint64_t LocalStore::queryValidPathId(DBState & state, const StorePath & path)
 
 bool LocalStore::isValidPath_(DBState & state, const StorePath & path)
 {
-    if (config().updateRegistrationTime)
-        pendingRegistrationTimeUpdates.insert(path);
-
     return state.stmts->QueryPathInfo.use()(printStorePath(path)).next();
 }
 

@@ -614,6 +614,12 @@ try {
 
 kj::Promise<Result<bool>> Store::isValidPath(const StorePath & storePath, const Activity * context)
 try {
+    /* Track registration time updates for queried paths when enabled.
+       This must happen before cache check to ensure paths are tracked even
+       when retrieved from cache (e.g., during copy operations on existing paths). */
+    if (config().updateRegistrationTime)
+        pendingRegistrationTimeUpdates.insert(storePath);
+
     {
         auto state_(co_await state.lock());
         auto res = state_->pathInfoCache.get(std::string(storePath.to_string()));
