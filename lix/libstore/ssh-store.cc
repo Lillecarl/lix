@@ -108,15 +108,49 @@ protected:
     SSH ssh;
 
     kj::Promise<Result<void>> setOptions(RemoteStore::Connection & conn) override
-    {
-        /* TODO Add a way to explicitly ask for some options to be
-           forwarded. One option: A way to query the daemon for its
-           settings, and then a series of params to SSHStore like
-           forward-cores or forward-overridden-cores that only
-           override the requested settings.
-        */
-        return {result::success()};
-    };
+    try {
+        StringSink command;
+
+        command << WorkerProto::Op::SetOptions
+           << settings.keepFailed
+           << settings.keepGoing
+           << settings.tryFallback
+           << verbosity
+           << settings.maxBuildJobs
+           << settings.maxSilentTime
+           << true
+           << (settings.verboseBuild ? lvlError : lvlVomit)
+           << 0 // obsolete log type
+           << 0 /* obsolete print build trace */
+           << settings.buildCores
+           << settings.useSubstitutes;
+
+        // Send only updateRegistrationTime as an override to mark paths as recently used
+        // on remote stores. We keep the overrides minimal to avoid sending configuration
+        // that may differ between client and daemon, keeping the protocol simple.
+        std::map<std::string, Config::SettingInfo> overrides;
+        overrides["update-registration-time"] = Config::SettingInfo{
+            config().updateRegistrationTime.to_string(),
+            config().updateRegistrationTime.description
+        };
+
+        command << overrides.size();
+        for (auto & i : overrides) {
+            command << i.first << i.second.value;
+        }
+
+        AsyncFdIoStream stream{AsyncFdIoStream::shared_fd{}, conn.getFD()};
+        TRY_AWAIT(stream.writeFull(command.s.data(), command.s.size()));
+        auto ex = TRY_AWAIT(conn.processStderr(stream));
+        if (ex.e) {
+            std::rethrow_exception(ex.e);
+        }
+
+        co_return result::success();
+    } catch (...) {
+        co_return result::current_exception();
+    }
+
 };
 
 ref<RemoteStore::Connection> SSHStore::openConnection()
