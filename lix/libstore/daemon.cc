@@ -939,6 +939,11 @@ void processConnection(
         tunnelLogger->stopWork();
         to.flush();
 
+        // Enable updateRegistrationTime for daemon connections to mark paths as recently used.
+        // This ensures both patched and unpatched clients benefit from LRU tracking. Patched
+        // clients can override this via SetOptions if needed.
+        store->config().updateRegistrationTime.override(true);
+
         /* Process client requests. */
         while (true) {
             WorkerProto::Op op;
